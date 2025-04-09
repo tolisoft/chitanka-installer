@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-installer_version="1.1"
-installer_git="https://github.com/chitanka/chitanka-installer.git"
+installer_version="1.2"
+installer_git="https://github.com/tolisoft/chitanka-installer.git"
 installer_dir=${installer_dir:-/root/chitanka-installer}
 install_log=$(dirname "$0")/install.log
 chitanka_dir=/var/www/chitanka
@@ -81,6 +81,7 @@ install() {
 
 	clear
 	install_chitanka_software
+
 	get_chitanka_content
 
 	echo_success
@@ -143,8 +144,13 @@ splash_screen() {
 }
 
 update_system() {
-	color_echo "$color_bold_green" "Започва обновяване на операционната система."
+	color_echo "$color_bold_green" "Добавяне на репозитори за php7.4. Oбновяване на операционната система."
 	sleep 1
+
+	$install_pkg apt-transport-https lsb-release ca-certificates wget
+	wget -O /etc/apt/trusted.gpg.d/php.gpg https://packages.sury.org/php/apt.gpg
+    echo "deb https://packages.sury.org/php/ $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/php.list
+
 	apt update -y
 	log "Операционната система беше обновена."
 }
@@ -162,10 +168,13 @@ install_basic_packages() {
 install_web_server() {
 	color_echo "$color_bold_green" "Започва инсталацията на уеб сървъра."
 	sleep 2
-	$install_pkg nginx php-fpm php-gd php-curl php-xsl php-intl php-zip
+
+	$install_pkg nginx php7.4-fpm php7.4-gd php7.4-curl php7.4-xsl php7.4-intl php7.4-zip php7.4-mysql
 	log "Инсталиране на необходимите пакети за огледалото – уеб сървър, интерпреатор..."
 	cp "$installer_dir"/nginx-vhost.conf /etc/nginx/sites-enabled/chitanka
 	log "Копиране на виртуалния хост."
+	set_socket_in_webhost
+	log "Добавен е наличния сокет за PHP в конфигурацията на виртуалния хост."
 }
 
 restart_web_server() {
@@ -192,8 +201,6 @@ set_domain() {
 		set_domain_in_localhost "$own_domain_name"
 		log "Избран е различен от заложения домейн: $own_domain_name и е добавен в конфигурационните файлове."
 	fi
-	set_socket_in_webhost
-	log "Добавен е наличния сокет за PHP в конфигурацията на виртуалния хост."
 	restart_web_server
 	log "Виртуалният хост беше създаден, уеб сървърът е рестартиран."
 }
@@ -289,22 +296,9 @@ log() {
 	echo "[$(date +"%d.%m.%Y %T")] $1" >> "$logfile"
 }
 
-is_debian_stable() {
-	if [[ ! $(grep 'VERSION=' /etc/os-release | grep $debian_stable_version) ]]; then return 1; fi
 
-}
-is_ubuntu() {
-	if [[ ! $(grep 'ID=' /etc/os-release | grep ubuntu) ]]; then return 1; fi
-}
 is_debian_based() {
 	if [[ ! -e /etc/debian_version ]]; then return 1; fi
-}
-is_centos() {
-	if [[ ! $(grep 'ID=' /etc/os-release | grep centos) ]]; then return 1; fi
-}
-
-is_apache_installed() {
-	if [[ ! $(ps -A | grep 'apache\|httpd') ]]; then return 1; fi
 }
 
 case "$1" in
